@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime as dt
 from Account import Account
+import os
 #%% Class Definition
 class Backtest:
     def __init__(self, price_mat_data, code_name):
@@ -55,10 +56,9 @@ class Backtest:
     def finishStrategy(self):
         self.max_drawback_ratios = self.calMD(self.account.nav_after_trading)
         self.calMetrics()
-        self.identifyTrend()
 
-    def identifyTrend(self, width=5):
-        moving_average_center = self.account.nav_after_trading.rolling(5, center=True, min_periods=1).mean()
+    def identifyTrend(self, width):
+        moving_average_center = self.account.nav_after_trading.rolling(width, center=True, min_periods=1).mean()
         self.trends = moving_average_center.diff().fillna(1).map(self.sign)
 
     def calMetrics(self):
@@ -73,9 +73,35 @@ class Backtest:
         win_lose = self.account.nav_after_trading.diff().dropna().map(self.sign)
         self.strategy_metrics['WR'] = (win_lose == 1).sum() / win_lose.shape[0]
 
-    def plot_nav(self, png_path='/figures/', file_name='performance.png'):
-        plt.figure(figsize=(12, 6))
-        plt.plot(self.account.nav_after_trading)
+    def plot_nav(self, png_path='figures/', file_name='performance.png', trend_width=5):
+        plt.rcParams['font.sans-serif'] = ['SimHei']
+        plt.rcParams['axes.unicode_minus'] = False
+        self.identifyTrend(trend_width)
+        fig = plt.figure(figsize=(12, 6))
+        ax1 = fig.add_axes([0.05, 0.05, 0.9, 0.9])
+        line1 = ax1.plot(self.account.nav_after_trading)
+        stem_container = ax1.stem(self.account.nav_after_trading.loc[self.trends == 1].index,
+                                  self.account.nav_after_trading.loc[self.trends == 1],
+                                  markerfmt='.', linefmt='pink', basefmt='w')
+        plt.setp(stem_container, 'markersize', 0)
+        stem_container = ax1.stem(self.account.nav_after_trading.loc[self.trends == -1].index,
+                                  self.account.nav_after_trading.loc[self.trends == -1],
+                                  markerfmt='.', linefmt='#4AB7FF', basefmt='w')
+        plt.setp(stem_container, 'markersize', 0)
+        ax1.set_ylim(0, 1.5 * self.account.nav_after_trading.max())
+        ax2 = ax1.twinx()
+        stem_container = ax2.stem(self.max_drawback_ratios.index, -self.max_drawback_ratios, linefmt='red',
+                                  markerfmt='r-')
+        ax2.set_ylim(-self.max_drawback_ratios.max() * 4, 0)
+        plt.setp(stem_container, 'markersize', 0)
+        ax1.set_title('净值曲线&回撤比率-趋势窗口长度:{0:d}'.format(trend_width))
+        plt.legend(line1 + stem_container[1], ('net_asset_value', 'drawdown_ratio'), loc=2)
+        plt.tight_layout()
+        plt.savefig(png_path + file_name, dpi=300, figsize=(12, 6))
+        if file_name is not None:
+            if not os.path.exists('figures'):
+                os.mkdir('figures')
+            plt.savefig(png_path + file_name, dpi=300)
 
     def getWeights(self, weights):
         self.target_weights = weights
@@ -84,9 +110,8 @@ class Backtest:
     def calMD(cls, nav_series):
         nav_max_series = cls.calHistoryMax(nav_series)
         drawdown = nav_max_series - nav_series
-        max_drawdown = cls.calHistoryMax(drawdown)
-        max_drawdown_ratio = max_drawdown / nav_max_series
-        return max_drawdown_ratio
+        max_drawdown_ratios = drawdown / nav_max_series
+        return max_drawdown_ratios
 
     @staticmethod
     def calHistoryMax(series_data):

@@ -7,10 +7,10 @@ code_name = pd.read_excel('codes_name.xlsx', squeeze=1)
 my_weights = pd.read_excel('weights.xlsx', sheet_name='Sheet4')
 my_weights.set_index('date', inplace=True)
 
-close_data = close_data.iloc[:300]
-my_weights = my_weights.iloc[:300]
+close_data = close_data.iloc[1300:1500]
+my_weights = my_weights.iloc[1300:1500]
 
 backtest = Backtest(close_data, code_name)
 backtest.getWeights(my_weights)
 backtest.runBackTest()
-a = 1
+backtest.plot_nav()
