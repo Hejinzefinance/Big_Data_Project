@@ -1,2 +1,5 @@
 *.xlsx
 /.idea
+*.jpg
+*.png
+/figures
